@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security report
+    url: https://github.com/a1418507570/opencode-remote-manager/security
+    about: Please report sensitive vulnerabilities through GitHub security reporting when available.
