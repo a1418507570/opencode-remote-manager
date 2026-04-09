@@ -1,0 +1,52 @@
+name: Feature request
+description: Suggest an improvement or new capability
+title: "[Feature] "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement.
+
+        The most useful requests explain the workflow problem first, then describe the proposed solution.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Describe the workflow pain point or missing capability.
+      placeholder: I need to...
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the behavior or API you want.
+      placeholder: The app should...
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: If you already tried a workaround, describe it here.
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Area
+      options:
+        - Menu bar UI
+        - SSH tunnel management
+        - Remote service bootstrap
+        - OpenCode Desktop integration
+        - Packaging and release
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: extra-context
+    attributes:
+      label: Additional context
+      description: Add screenshots, mockups, related repositories, or technical notes.
