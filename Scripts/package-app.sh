@@ -4,7 +4,8 @@ set -eu
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 PROJECT_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
 APP_NAME="OpenCode Remote Manager.app"
-APP_DEST="${HOME}/Applications/${APP_NAME}"
+APP_ROOT="${APP_ROOT:-${HOME}/Applications}"
+APP_DEST="${APP_ROOT}/${APP_NAME}"
 BUILD_BINARY="${PROJECT_ROOT}/.build/release/OpenCodeRemoteManagerApp"
 INFO_PLIST="${PROJECT_ROOT}/Resources/Info.plist"
 
