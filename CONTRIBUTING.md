@@ -8,6 +8,7 @@ Thanks for your interest in improving OpenCode Remote Manager.
 2. Keep changes small and easy to review.
 3. Run the local verification steps before opening a pull request.
 4. Include enough context in the PR description to explain the why, not just the what.
+5. Use the repository issue templates for bugs and feature requests whenever possible.
 
 ## Local verification
 
@@ -34,3 +35,9 @@ swift test -Xswiftc -F -Xswiftc /Library/Developer/CommandLineTools/Library/Deve
 - [ ] tests pass
 - [ ] docs are updated if behavior changed
 - [ ] changes are scoped to one logical concern
+
+## Issue and PR templates
+
+- Bugs: use the GitHub bug report template and include reproduction steps plus `diagnose --json` output when relevant.
+- Features: use the feature request template and describe the workflow problem before the proposed solution.
+- Pull requests: use the repository PR template so verification details are easy to review.
