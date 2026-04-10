@@ -86,6 +86,7 @@ swift run OpenCodeRemoteManagerCLI diagnose --json
 
 - 许可证：[Apache-2.0](LICENSE)
 - 贡献说明：[CONTRIBUTING.md](CONTRIBUTING.md)
+- 项目路线图：[ROADMAP.md](ROADMAP.md)
 - 社区行为：[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 - 安全反馈：[SECURITY.md](SECURITY.md)
 
@@ -159,5 +160,6 @@ The release archive is written to `dist/OpenCodeRemoteManager-macOS.zip`.
 
 - License: [Apache-2.0](LICENSE)
 - Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Roadmap: [ROADMAP.md](ROADMAP.md)
 - Code of Conduct: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 - Security: [SECURITY.md](SECURITY.md)
