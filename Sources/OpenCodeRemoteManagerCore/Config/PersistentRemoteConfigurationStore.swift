@@ -5,7 +5,11 @@ public protocol RemoteConfigurationStore: Sendable {
     func loadConnections() -> [OpenCodeRemoteConnection]
 }
 
-public struct PersistentRemoteConfigurationStore: RemoteConfigurationStore, Sendable {
+public protocol MutableRemoteConfigurationStore: RemoteConfigurationStore {
+    func saveConnections(_ connections: [OpenCodeRemoteConnection]) throws
+}
+
+public struct PersistentRemoteConfigurationStore: MutableRemoteConfigurationStore, Sendable {
     public struct Payload: Codable, Equatable {
         public let connections: [OpenCodeRemoteConnection]
 
@@ -19,7 +23,7 @@ public struct PersistentRemoteConfigurationStore: RemoteConfigurationStore, Send
 
     public init(
         fileURL: URL = defaultRemoteConfigurationStoreFileURL(),
-        seededConnections: [OpenCodeRemoteConnection] = OpenCodeRemoteDefaults.connections
+        seededConnections: [OpenCodeRemoteConnection] = []
     ) {
         self.fileURL = fileURL
         self.seededConnections = seededConnections
@@ -44,6 +48,26 @@ public struct PersistentRemoteConfigurationStore: RemoteConfigurationStore, Send
             return seededConnections
         } ?? seededConnections
     }
+
+    public func saveConnections(_ connections: [OpenCodeRemoteConnection]) throws {
+        guard validate(connections) else {
+            throw OpenCodeRemoteManagerError.fileSystemFailure("Remote configuration contains duplicate connection IDs.")
+        }
+
+        ensureParentDirectoryExists()
+
+        do {
+            try withFileLockThrowing(at: fileURL) {
+                let payload = Payload(connections: connections)
+                let data = try JSONEncoder().encode(payload)
+                try data.write(to: fileURL, options: .atomic)
+            }
+        } catch let error as OpenCodeRemoteManagerError {
+            throw error
+        } catch {
+            throw OpenCodeRemoteManagerError.fileSystemFailure("Failed to save remote configuration: \(error.localizedDescription)")
+        }
+    }
 }
 
 private extension PersistentRemoteConfigurationStore {
@@ -60,10 +84,6 @@ private extension PersistentRemoteConfigurationStore {
     }
 
     func validate(_ connections: [OpenCodeRemoteConnection]) -> Bool {
-        guard connections.isEmpty == false else {
-            return false
-        }
-
         let ids = connections.map(\.id)
         return Set(ids).count == ids.count
     }
@@ -101,6 +121,25 @@ private extension PersistentRemoteConfigurationStore {
         }
 
         return try? body()
+    }
+
+    func withFileLockThrowing(at fileURL: URL, body: () throws -> Void) throws {
+        let lockURL = fileURL.appendingPathExtension("lock")
+        let descriptor = open(lockURL.path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR)
+        guard descriptor >= 0 else {
+            throw OpenCodeRemoteManagerError.fileSystemFailure("Failed to open remote configuration lock file at \(lockURL.path)")
+        }
+
+        defer {
+            flock(descriptor, LOCK_UN)
+            close(descriptor)
+        }
+
+        guard flock(descriptor, LOCK_EX) == 0 else {
+            throw OpenCodeRemoteManagerError.fileSystemFailure("Failed to acquire remote configuration lock at \(lockURL.path)")
+        }
+
+        try body()
     }
 }
 

@@ -11,7 +11,7 @@ struct PersistentRemoteConfigurationStoreTests {
         try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directoryURL) }
 
-        let store = PersistentRemoteConfigurationStore(fileURL: fileURL)
+        let store = PersistentRemoteConfigurationStore(fileURL: fileURL, seededConnections: OpenCodeRemoteDefaults.connections)
         let connections = store.loadConnections()
 
         #expect(connections == OpenCodeRemoteDefaults.connections)
@@ -30,7 +30,7 @@ struct PersistentRemoteConfigurationStoreTests {
         try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: rootURL) }
 
-        let store = PersistentRemoteConfigurationStore(fileURL: fileURL)
+        let store = PersistentRemoteConfigurationStore(fileURL: fileURL, seededConnections: OpenCodeRemoteDefaults.connections)
         let connections = store.loadConnections()
 
         #expect(connections == OpenCodeRemoteDefaults.connections)
@@ -59,10 +59,36 @@ struct PersistentRemoteConfigurationStoreTests {
         let payload = PersistentRemoteConfigurationStore.Payload(connections: persistedConnections)
         try JSONEncoder().encode(payload).write(to: fileURL)
 
-        let store = PersistentRemoteConfigurationStore(fileURL: fileURL)
+        let store = PersistentRemoteConfigurationStore(fileURL: fileURL, seededConnections: OpenCodeRemoteDefaults.connections)
         let connections = store.loadConnections()
 
         #expect(connections == persistedConnections)
+    }
+
+    @Test
+    func saveConnectionsPersistsCustomConnections() throws {
+        let directoryURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let fileURL = directoryURL.appendingPathComponent("connections.json")
+
+        try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directoryURL) }
+
+        let store = PersistentRemoteConfigurationStore(fileURL: fileURL, seededConnections: OpenCodeRemoteDefaults.connections)
+        let customConnections = [
+            OpenCodeRemoteConnection(
+                id: OpenCodeRemoteConnectionID(rawValue: "alpha"),
+                sshAlias: "alpha-host",
+                localURL: URL(string: "http://127.0.0.1:34096")!,
+                localPort: 34_096,
+                remotePort: 4_196
+            ),
+        ]
+
+        try store.saveConnections(customConnections)
+
+        let persisted = try JSONDecoder().decode(PersistentRemoteConfigurationStore.Payload.self, from: Data(contentsOf: fileURL))
+        #expect(persisted.connections == customConnections)
+        #expect(store.loadConnections() == customConnections)
     }
 
     @Test
@@ -86,7 +112,7 @@ struct PersistentRemoteConfigurationStoreTests {
         let payload = PersistentRemoteConfigurationStore.Payload(connections: persistedConnections)
         try JSONEncoder().encode(payload).write(to: fileURL)
 
-        let store = PersistentRemoteConfigurationStore(fileURL: fileURL)
+        let store = PersistentRemoteConfigurationStore(fileURL: fileURL, seededConnections: OpenCodeRemoteDefaults.connections)
         let connections = store.loadConnections()
 
         #expect(connections.first?.id.rawValue == "review-dashboard")
@@ -119,7 +145,7 @@ struct PersistentRemoteConfigurationStoreTests {
         let originalData = try JSONEncoder().encode(payload)
         try originalData.write(to: fileURL)
 
-        let store = PersistentRemoteConfigurationStore(fileURL: fileURL)
+        let store = PersistentRemoteConfigurationStore(fileURL: fileURL, seededConnections: OpenCodeRemoteDefaults.connections)
         let connections = store.loadConnections()
 
         #expect(connections == OpenCodeRemoteDefaults.connections)
@@ -127,7 +153,7 @@ struct PersistentRemoteConfigurationStoreTests {
     }
 
     @Test
-    func fallsBackToDefaultsWhenPersistedConfigIsEmpty() throws {
+    func returnsExplicitlyEmptyPersistedConfigurationWithoutReseeding() throws {
         let directoryURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         let fileURL = directoryURL.appendingPathComponent("connections.json")
 
@@ -138,11 +164,27 @@ struct PersistentRemoteConfigurationStoreTests {
         let originalData = try JSONEncoder().encode(payload)
         try originalData.write(to: fileURL)
 
-        let store = PersistentRemoteConfigurationStore(fileURL: fileURL)
+        let store = PersistentRemoteConfigurationStore(fileURL: fileURL, seededConnections: OpenCodeRemoteDefaults.connections)
         let connections = store.loadConnections()
 
-        #expect(connections == OpenCodeRemoteDefaults.connections)
+        #expect(connections.isEmpty)
         #expect(try Data(contentsOf: fileURL) == originalData)
+    }
+
+    @Test
+    func saveConnectionsAllowsExplicitlyEmptyConfiguration() throws {
+        let directoryURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let fileURL = directoryURL.appendingPathComponent("connections.json")
+
+        try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directoryURL) }
+
+        let store = PersistentRemoteConfigurationStore(fileURL: fileURL, seededConnections: OpenCodeRemoteDefaults.connections)
+        try store.saveConnections([])
+
+        let persisted = try JSONDecoder().decode(PersistentRemoteConfigurationStore.Payload.self, from: Data(contentsOf: fileURL))
+        #expect(persisted.connections.isEmpty)
+        #expect(store.loadConnections().isEmpty)
     }
 
     @Test
@@ -156,10 +198,51 @@ struct PersistentRemoteConfigurationStoreTests {
         let invalidJSON = #"{"connections":"bad-shape"}"#
         try invalidJSON.data(using: .utf8)?.write(to: fileURL)
 
-        let store = PersistentRemoteConfigurationStore(fileURL: fileURL)
+        let store = PersistentRemoteConfigurationStore(fileURL: fileURL, seededConnections: OpenCodeRemoteDefaults.connections)
         let connections = store.loadConnections()
 
         #expect(connections == OpenCodeRemoteDefaults.connections)
         #expect(String(data: try Data(contentsOf: fileURL), encoding: .utf8) == invalidJSON)
+    }
+
+    @Test
+    func saveConnectionsRejectsDuplicateIDsWithoutOverwritingExistingPayload() throws {
+        let directoryURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let fileURL = directoryURL.appendingPathComponent("connections.json")
+
+        try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directoryURL) }
+
+        let initialPayload = PersistentRemoteConfigurationStore.Payload(connections: OpenCodeRemoteDefaults.connections)
+        let initialData = try JSONEncoder().encode(initialPayload)
+        try initialData.write(to: fileURL)
+
+        let duplicateConnections = [
+            OpenCodeRemoteConnection(
+                id: OpenCodeRemoteConnectionID(rawValue: "go"),
+                sshAlias: "alpha-host",
+                localURL: URL(string: "http://127.0.0.1:34096")!,
+                localPort: 34_096
+            ),
+            OpenCodeRemoteConnection(
+                id: OpenCodeRemoteConnectionID(rawValue: "go"),
+                sshAlias: "beta-host",
+                localURL: URL(string: "http://127.0.0.1:44096")!,
+                localPort: 44_096
+            ),
+        ]
+
+        let store = PersistentRemoteConfigurationStore(fileURL: fileURL)
+
+        do {
+            try store.saveConnections(duplicateConnections)
+            Issue.record("Expected duplicate connection IDs to be rejected")
+        } catch let error as OpenCodeRemoteManagerError {
+            #expect(error.errorDescription == "Remote configuration contains duplicate connection IDs.")
+        } catch {
+            Issue.record("Unexpected error type: \(error.localizedDescription)")
+        }
+
+        #expect(try Data(contentsOf: fileURL) == initialData)
     }
 }
