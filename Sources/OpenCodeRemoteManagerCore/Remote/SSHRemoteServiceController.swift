@@ -88,7 +88,7 @@ public struct SSHRemoteServiceController: RemoteServiceControlling {
     public init(
         processExecutor: ProcessExecuting,
         commandSet: RemoteShellCommandSet = .default,
-        connections: [OpenCodeRemoteConnection] = OpenCodeRemoteDefaults.connections
+        connections: [OpenCodeRemoteConnection]
     ) {
         self.processExecutor = processExecutor
         self.commandSet = commandSet

@@ -5,7 +5,10 @@ import Testing
 struct RemoteBootstrapTests {
     @Test
     func bootstrapRemoteWritesStableBinaryPathFilesAndWrappers() async throws {
-        let controller = SSHRemoteServiceController(processExecutor: BootstrapRecordingProcessExecutor())
+        let controller = SSHRemoteServiceController(
+            processExecutor: BootstrapRecordingProcessExecutor(),
+            connections: OpenCodeRemoteDefaults.connections
+        )
 
         let commands = try await controller.bootstrapRemote(dryRun: true)
 

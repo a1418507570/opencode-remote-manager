@@ -6,7 +6,7 @@ struct SSHCommandPathTests {
     @Test
     func remoteStartUsesSSHWithAliasAndShellCommand() async throws {
         let executor = RecordingProcessExecutor(result: .init(exitCode: 0))
-        let controller = SSHRemoteServiceController(processExecutor: executor)
+        let controller = SSHRemoteServiceController(processExecutor: executor, connections: OpenCodeRemoteDefaults.connections)
 
         try await controller.start(OpenCodeRemoteDefaults.connection(for: .go))
 

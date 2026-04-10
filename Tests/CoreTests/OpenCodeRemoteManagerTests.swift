@@ -63,6 +63,7 @@ struct OpenCodeRemoteManagerTests {
     @Test
     func snapshotPreservesDesiredStateWhenStatusChecksThrow() async throws {
         let manager = OpenCodeRemoteManager(
+            connections: OpenCodeRemoteDefaults.connections,
             desiredStateStore: InMemoryDesiredStateStore(initialStates: [.go: .running]),
             remoteServiceController: ThrowingRemoteServiceController(),
             tunnelController: ThrowingTunnelController(),
@@ -82,6 +83,7 @@ struct OpenCodeRemoteManagerTests {
         let remoteController = ProbeFailingRemoteServiceController()
         let tunnelController = ProbeFailingTunnelController()
         let manager = OpenCodeRemoteManager(
+            connections: OpenCodeRemoteDefaults.connections,
             desiredStateStore: InMemoryDesiredStateStore(initialStates: [.go: .running]),
             remoteServiceController: remoteController,
             tunnelController: tunnelController,
@@ -124,6 +126,7 @@ struct OpenCodeRemoteManagerTests {
         dateProvider: FixedDateProvider
     ) -> OpenCodeRemoteManager {
         OpenCodeRemoteManager(
+            connections: OpenCodeRemoteDefaults.connections,
             desiredStateStore: InMemoryDesiredStateStore(),
             remoteServiceController: remoteController,
             tunnelController: tunnelController,
