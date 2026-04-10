@@ -67,7 +67,8 @@ struct CLIApplication {
             throw OpenCodeRemoteManagerError.invalidCommand(usage)
         }
 
-        guard let identifier = OpenCodeRemoteConnectionID(rawValue: arguments[1]) else {
+        let identifier = OpenCodeRemoteConnectionID(rawValue: arguments[1])
+        guard manager.connections().contains(where: { $0.id == identifier }) else {
             throw OpenCodeRemoteManagerError.unknownConnection(arguments[1])
         }
 
@@ -97,7 +98,9 @@ struct CLIApplication {
     }
 
     private var usage: String {
-        """
+        let connectionIDs = manager.connections().map { $0.id.rawValue }.joined(separator: ", ")
+
+        return """
         Usage:
           diagnose [--json]
           start <id>
@@ -106,7 +109,7 @@ struct CLIApplication {
           repair <id>
           bootstrap-remote [--dry-run]
 
-        Connection IDs: go, java
+        Connection IDs: \(connectionIDs)
         """
     }
 }

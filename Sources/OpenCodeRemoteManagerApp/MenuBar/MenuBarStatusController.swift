@@ -1,4 +1,5 @@
 import AppKit
+import OpenCodeRemoteManagerCore
 
 @MainActor
 final class MenuBarStatusController: NSObject, NSMenuDelegate {
@@ -106,7 +107,7 @@ private extension MenuBarStatusController {
 
     func makeHeaderItem(for snapshot: ConnectionSnapshot) -> NSMenuItem {
         let item = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-        let title = "\(snapshot.descriptor.id.displayName) — \(snapshot.overallStatusText)"
+        let title = "\(snapshot.descriptor.displayName) — \(snapshot.overallStatusText)"
 
         item.attributedTitle = NSAttributedString(
             string: title,
@@ -127,7 +128,7 @@ private extension MenuBarStatusController {
     func makeActionItem(
         title: String,
         action: MenuBarAppController.MenuAction,
-        connectionID: RemoteConnectionID?
+        connectionID: OpenCodeRemoteConnectionID?
     ) -> NSMenuItem {
         let item = NSMenuItem(title: title, action: #selector(handleMenuAction(_:)), keyEquivalent: "")
         item.target = self
@@ -148,9 +149,9 @@ private extension MenuBarStatusController {
 
 private final class MenuCommandPayload: NSObject {
     let action: MenuBarAppController.MenuAction
-    let connectionID: RemoteConnectionID?
+    let connectionID: OpenCodeRemoteConnectionID?
 
-    init(action: MenuBarAppController.MenuAction, connectionID: RemoteConnectionID?) {
+    init(action: MenuBarAppController.MenuAction, connectionID: OpenCodeRemoteConnectionID?) {
         self.action = action
         self.connectionID = connectionID
     }
