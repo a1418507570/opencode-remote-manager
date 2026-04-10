@@ -12,10 +12,10 @@ struct RemoteBootstrapTests {
         let goCommand = try #require(commands.first(where: { $0.contains("rubyxguo") }))
         let javaCommand = try #require(commands.first(where: { $0.contains("nullguo") }))
 
-        #expect(goCommand.contains("go-opencode-path"))
-        #expect(goCommand.contains("cat $HOME/.opencode-remote-manager/go-opencode-path"))
-        #expect(javaCommand.contains("java-opencode-path"))
-        #expect(javaCommand.contains("cat $HOME/.opencode-remote-manager/java-opencode-path"))
+        #expect(goCommand.contains("raw-go-opencode-path"))
+        #expect(goCommand.contains("cat $HOME/.opencode-remote-manager/raw-go-opencode-path"))
+        #expect(javaCommand.contains("raw-java-opencode-path"))
+        #expect(javaCommand.contains("cat $HOME/.opencode-remote-manager/raw-java-opencode-path"))
     }
 }
 

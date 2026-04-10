@@ -40,7 +40,7 @@ struct SSHCommandPathTests {
             "-N",
             "-M",
             "-S",
-            "/Users/tester/Library/Application Support/OpenCodeRemoteManager/Tunnels/java.sock",
+            "/Users/tester/Library/Application Support/OpenCodeRemoteManager/Tunnels/raw-java.sock",
             "-o",
             "BatchMode=yes",
             "-o",
@@ -57,8 +57,8 @@ struct SSHCommandPathTests {
 
     @Test
     func tunnelStopUsesManagedControlSocketExitCommand() async throws {
-        let executor = SequencedRecordingProcessExecutor(results: [.init(exitCode: 0)])
-        let fileManager = StubFileManager(existingPaths: ["/Users/tester/Library/Application Support/OpenCodeRemoteManager/Tunnels/go.sock"])
+        let executor = SequencedRecordingProcessExecutor(results: [.init(exitCode: 0), .init(exitCode: 0)])
+        let fileManager = StubFileManager(existingPaths: ["/Users/tester/Library/Application Support/OpenCodeRemoteManager/Tunnels/raw-go.sock"])
         let controller = SSHTunnelController(
             processExecutor: executor,
             fileManager: fileManager,
@@ -67,11 +67,20 @@ struct SSHCommandPathTests {
 
         try await controller.stop(OpenCodeRemoteDefaults.connection(for: .go))
 
-        let request = try #require((await executor.requests).first)
-        #expect(request.arguments == [
+        let requests = await executor.requests
+        #expect(requests.count == 2)
+        #expect(requests[0].arguments == [
             "ssh",
             "-S",
-            "/Users/tester/Library/Application Support/OpenCodeRemoteManager/Tunnels/go.sock",
+            "/Users/tester/Library/Application Support/OpenCodeRemoteManager/Tunnels/raw-go.sock",
+            "-O",
+            "check",
+            "rubyxguo",
+        ])
+        #expect(requests[1].arguments == [
+            "ssh",
+            "-S",
+            "/Users/tester/Library/Application Support/OpenCodeRemoteManager/Tunnels/raw-go.sock",
             "-O",
             "exit",
             "rubyxguo",
@@ -80,6 +89,54 @@ struct SSHCommandPathTests {
 
     @Test
     func tunnelStateUsesManagedControlSocketCheckCommand() async throws {
+        let executor = SequencedRecordingProcessExecutor(results: [.init(exitCode: 0)])
+        let fileManager = StubFileManager(existingPaths: ["/Users/tester/Library/Application Support/OpenCodeRemoteManager/Tunnels/raw-go.sock"])
+        let controller = SSHTunnelController(
+            processExecutor: executor,
+            fileManager: fileManager,
+            homeDirectoryURL: URL(fileURLWithPath: "/Users/tester")
+        )
+
+        let state = try await controller.state(for: OpenCodeRemoteDefaults.connection(for: .go))
+
+        #expect(state == .running)
+        let request = try #require((await executor.requests).first)
+        #expect(request.arguments == [
+            "ssh",
+            "-S",
+            "/Users/tester/Library/Application Support/OpenCodeRemoteManager/Tunnels/raw-go.sock",
+            "-O",
+            "check",
+            "rubyxguo",
+        ])
+    }
+
+    @Test
+    func tunnelStartNoopsWhenManagedControlSocketAlreadyExists() async throws {
+        let executor = SequencedRecordingProcessExecutor(results: [.init(exitCode: 0)])
+        let fileManager = StubFileManager(existingPaths: ["/Users/tester/Library/Application Support/OpenCodeRemoteManager/Tunnels/raw-go.sock"])
+        let controller = SSHTunnelController(
+            processExecutor: executor,
+            fileManager: fileManager,
+            homeDirectoryURL: URL(fileURLWithPath: "/Users/tester")
+        )
+
+        try await controller.start(OpenCodeRemoteDefaults.connection(for: .go))
+
+        let requests = await executor.requests
+        #expect(requests.count == 1)
+        #expect(requests[0].arguments == [
+            "ssh",
+            "-S",
+            "/Users/tester/Library/Application Support/OpenCodeRemoteManager/Tunnels/raw-go.sock",
+            "-O",
+            "check",
+            "rubyxguo",
+        ])
+    }
+
+    @Test
+    func tunnelStateRecognizesLegacyControlSocketPath() async throws {
         let executor = SequencedRecordingProcessExecutor(results: [.init(exitCode: 0)])
         let fileManager = StubFileManager(existingPaths: ["/Users/tester/Library/Application Support/OpenCodeRemoteManager/Tunnels/go.sock"])
         let controller = SSHTunnelController(
@@ -103,27 +160,49 @@ struct SSHCommandPathTests {
     }
 
     @Test
-    func tunnelStartNoopsWhenManagedControlSocketAlreadyExists() async throws {
-        let executor = SequencedRecordingProcessExecutor(results: [.init(exitCode: 0)])
-        let fileManager = StubFileManager(existingPaths: ["/Users/tester/Library/Application Support/OpenCodeRemoteManager/Tunnels/go.sock"])
+    func tunnelUsesStorageIdentifierForUnsafeConnectionIDs() async throws {
+        let unsafe = OpenCodeRemoteConnection(
+            id: OpenCodeRemoteConnectionID(rawValue: "../../bad id"),
+            sshAlias: "unsafe-host",
+            localURL: URL(string: "http://127.0.0.1:34096")!,
+            localPort: 34096,
+            remotePort: 4096
+        )
+        let executor = SequencedRecordingProcessExecutor(results: [.init(exitCode: 0), .init(exitCode: 0)])
         let controller = SSHTunnelController(
             processExecutor: executor,
-            fileManager: fileManager,
+            fileManager: StubFileManager(),
             homeDirectoryURL: URL(fileURLWithPath: "/Users/tester")
         )
 
-        try await controller.start(OpenCodeRemoteDefaults.connection(for: .go))
+        try await controller.start(unsafe)
 
-        let requests = await executor.requests
-        #expect(requests.count == 1)
-        #expect(requests[0].arguments == [
-            "ssh",
-            "-S",
-            "/Users/tester/Library/Application Support/OpenCodeRemoteManager/Tunnels/go.sock",
-            "-O",
-            "check",
-            "rubyxguo",
-        ])
+        let request = try #require((await executor.requests).first)
+        let socketPath = request.arguments[5]
+        #expect(socketPath.contains("../") == false)
+        #expect(socketPath.contains("bad id") == false)
+        #expect(socketPath.contains("hex-") == true)
+    }
+
+    @Test
+    func remoteBootstrapUsesStorageIdentifierForUnsafeConnectionIDs() async throws {
+        let unsafe = OpenCodeRemoteConnection(
+            id: OpenCodeRemoteConnectionID(rawValue: "../../bad id"),
+            sshAlias: "unsafe-host",
+            localURL: URL(string: "http://127.0.0.1:34096")!,
+            localPort: 34096,
+            remotePort: 4096
+        )
+        let controller = SSHRemoteServiceController(
+            processExecutor: RecordingProcessExecutor(result: .init(exitCode: 0)),
+            connections: [unsafe]
+        )
+
+        let commands = try await controller.bootstrapRemote(dryRun: true)
+        let command = try #require(commands.first)
+
+        #expect(command.contains("../../bad id") == false)
+        #expect(command.contains("hex-") == true)
     }
 }
 

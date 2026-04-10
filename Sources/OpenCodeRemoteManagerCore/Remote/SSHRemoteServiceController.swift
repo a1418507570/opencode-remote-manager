@@ -34,7 +34,8 @@ public struct SSHRemoteServiceController: RemoteServiceControlling {
             bootstrap: { connection in
                 let wrapperPath = wrapperScriptPath(for: connection)
                 let resolvedPathPath = resolvedBinaryPathFilePath(for: connection)
-                let cronLine = "@reboot \(wrapperPath) # OCRM \(connection.id.rawValue)"
+                let cronMarker = connection.id.storageIdentifier
+                let cronLine = "@reboot \(wrapperPath) # OCRM \(cronMarker)"
 
                 return """
                 mkdir -p ~/.opencode-remote-manager
@@ -46,7 +47,7 @@ public struct SSHRemoteServiceController: RemoteServiceControlling {
                 \(remoteWrapperScript(for: connection))
                 EOF
                 chmod +x "\(wrapperPath)"
-                { crontab -l 2>/dev/null | grep -v 'OCRM \(connection.id.rawValue)' || true; printf '%s\\n' \(shellQuoted(cronLine)); } | crontab -
+                { crontab -l 2>/dev/null | grep -v 'OCRM \(cronMarker)' || true; printf '%s\\n' \(shellQuoted(cronLine)); } | crontab -
                 printf '%s\\n' "\(wrapperPath)"
                 """
             },
@@ -82,10 +83,16 @@ public struct SSHRemoteServiceController: RemoteServiceControlling {
 
     private let processExecutor: ProcessExecuting
     private let commandSet: RemoteShellCommandSet
+    private let connections: [OpenCodeRemoteConnection]
 
-    public init(processExecutor: ProcessExecuting, commandSet: RemoteShellCommandSet = .default) {
+    public init(
+        processExecutor: ProcessExecuting,
+        commandSet: RemoteShellCommandSet = .default,
+        connections: [OpenCodeRemoteConnection] = OpenCodeRemoteDefaults.connections
+    ) {
         self.processExecutor = processExecutor
         self.commandSet = commandSet
+        self.connections = connections
     }
 
     public func start(_ connection: OpenCodeRemoteConnection) async throws {
@@ -108,7 +115,7 @@ public struct SSHRemoteServiceController: RemoteServiceControlling {
     public func bootstrapRemote(dryRun: Bool) async throws -> [String] {
         var renderedCommands: [String] = []
 
-        for connection in OpenCodeRemoteDefaults.connections {
+        for connection in connections {
             let command = commandSet.bootstrap(connection)
             renderedCommands.append("ssh \(connection.sshAlias) sh -lc \(shellQuoted(command))")
 
@@ -153,15 +160,15 @@ private func shellQuoted(_ value: String) -> String {
 }
 
 private func wrapperScriptPath(for connection: OpenCodeRemoteConnection) -> String {
-    "$HOME/.opencode-remote-manager/\(connection.id.rawValue)-serve.sh"
+    "$HOME/.opencode-remote-manager/\(connection.id.storageIdentifier)-serve.sh"
 }
 
 private func resolvedBinaryPathFilePath(for connection: OpenCodeRemoteConnection) -> String {
-    "$HOME/.opencode-remote-manager/\(connection.id.rawValue)-opencode-path"
+    "$HOME/.opencode-remote-manager/\(connection.id.storageIdentifier)-opencode-path"
 }
 
 private func fallbackStartCommand(for connection: OpenCodeRemoteConnection) -> String {
-    let logPath = "$HOME/.opencode-remote-manager/\(connection.id.rawValue).log"
+    let logPath = "$HOME/.opencode-remote-manager/\(connection.id.storageIdentifier).log"
 
     return """
     mkdir -p ~/.opencode-remote-manager
@@ -173,7 +180,7 @@ private func fallbackStartCommand(for connection: OpenCodeRemoteConnection) -> S
 }
 
 private func remoteWrapperScript(for connection: OpenCodeRemoteConnection) -> String {
-    let logPath = "$HOME/.opencode-remote-manager/\(connection.id.rawValue).log"
+    let logPath = "$HOME/.opencode-remote-manager/\(connection.id.storageIdentifier).log"
     let resolvedPathFile = resolvedBinaryPathFilePath(for: connection)
 
     return """
