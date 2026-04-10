@@ -1,41 +1,23 @@
 import Foundation
 import OpenCodeRemoteManagerCore
 
-enum RemoteConnectionID: String, CaseIterable, Hashable, Sendable {
-    case go
-    case java
+struct ConnectionDescriptor: Hashable, Sendable {
+    let id: OpenCodeRemoteConnectionID
+    let fixedURL: URL
 
     var displayName: String {
-        switch self {
-        case .go:
+        switch id.rawValue {
+        case OpenCodeRemoteConnectionID.go.rawValue:
             return "Go"
-        case .java:
+        case OpenCodeRemoteConnectionID.java.rawValue:
             return "Java"
+        default:
+            return id.rawValue
+                .split(separator: "-")
+                .map { $0.capitalized }
+                .joined(separator: " ")
         }
     }
-
-    var coreID: OpenCodeRemoteConnectionID {
-        switch self {
-        case .go:
-            return .go
-        case .java:
-            return .java
-        }
-    }
-
-    init(_ value: OpenCodeRemoteConnectionID) {
-        switch value {
-        case .go:
-            self = .go
-        case .java:
-            self = .java
-        }
-    }
-}
-
-struct ConnectionDescriptor: Hashable, Sendable {
-    let id: RemoteConnectionID
-    let fixedURL: URL
 }
 
 enum ConnectionHealthState: Sendable, Equatable {
@@ -144,7 +126,7 @@ extension ConnectionSnapshot {
 
         self.init(
             descriptor: ConnectionDescriptor(
-                id: RemoteConnectionID(coreSnapshot.connection.id),
+                id: coreSnapshot.connection.id,
                 fixedURL: coreSnapshot.connection.localURL
             ),
             desiredState: desiredState,

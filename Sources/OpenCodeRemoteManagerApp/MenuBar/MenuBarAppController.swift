@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import OpenCodeRemoteManagerCore
 
 @MainActor
 final class MenuBarAppController {
@@ -63,7 +64,7 @@ final class MenuBarAppController {
     }
 
     var statusItemToolTip: String {
-        var lines = orderedSnapshots.map { "\($0.descriptor.id.displayName): \($0.overallStatusText)" }
+        var lines = orderedSnapshots.map { "\($0.descriptor.displayName): \($0.overallStatusText)" }
 
         if let footerMessage {
             lines.append(footerMessage)
@@ -89,7 +90,7 @@ final class MenuBarAppController {
         startBackgroundReconcileLoop()
     }
 
-    func perform(_ action: MenuAction, for connectionID: RemoteConnectionID?) {
+    func perform(_ action: MenuAction, for connectionID: OpenCodeRemoteConnectionID?) {
         switch action {
         case .copyURL:
             copyURL(for: connectionID)
@@ -126,21 +127,21 @@ final class MenuBarAppController {
 }
 
 private extension MenuBarAppController {
-    func handleAsyncAction(_ action: MenuAction, connectionID: RemoteConnectionID?) async {
+    func handleAsyncAction(_ action: MenuAction, connectionID: OpenCodeRemoteConnectionID?) async {
         do {
             switch action {
             case .start:
                 orderedSnapshots = try await replacingSnapshot(action: .start, for: connectionID)
-                lastMessage = "Started \(connectionID?.displayName ?? "connection")."
+                lastMessage = "Started \(displayName(for: connectionID) ?? "connection")."
             case .stop:
                 orderedSnapshots = try await replacingSnapshot(action: .stop, for: connectionID)
-                lastMessage = "Stopped \(connectionID?.displayName ?? "connection")."
+                lastMessage = "Stopped \(displayName(for: connectionID) ?? "connection")."
             case .restart:
                 orderedSnapshots = try await replacingSnapshot(action: .restart, for: connectionID)
-                lastMessage = "Restarted \(connectionID?.displayName ?? "connection")."
+                lastMessage = "Restarted \(displayName(for: connectionID) ?? "connection")."
             case .repair:
                 orderedSnapshots = try await replacingSnapshot(action: .repair, for: connectionID)
-                lastMessage = "Repair completed for \(connectionID?.displayName ?? "connection")."
+                lastMessage = "Repair completed for \(displayName(for: connectionID) ?? "connection")."
             case .refresh:
                 orderedSnapshots = try await replacingSnapshot(action: .refresh, for: connectionID)
                 lastMessage = nil
@@ -163,7 +164,7 @@ private extension MenuBarAppController {
         onChange?()
     }
 
-    func replacingSnapshot(action: ConnectionCommand, for connectionID: RemoteConnectionID?) async throws -> [ConnectionSnapshot] {
+    func replacingSnapshot(action: ConnectionCommand, for connectionID: OpenCodeRemoteConnectionID?) async throws -> [ConnectionSnapshot] {
         guard let connectionID else {
             return await gateway.loadSnapshots()
         }
@@ -172,7 +173,7 @@ private extension MenuBarAppController {
         return orderedSnapshots.map { $0.descriptor.id == connectionID ? next : $0 }
     }
 
-    func copyURL(for connectionID: RemoteConnectionID?) {
+    func copyURL(for connectionID: OpenCodeRemoteConnectionID?) {
         guard let snapshot = snapshot(for: connectionID) else {
             return
         }
@@ -180,28 +181,36 @@ private extension MenuBarAppController {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(snapshot.descriptor.fixedURL.absoluteString, forType: .string)
-        lastMessage = "Copied \(snapshot.descriptor.id.displayName) URL."
+        lastMessage = "Copied \(snapshot.descriptor.displayName) URL."
         lastError = nil
         onChange?()
     }
 
-    func openURL(for connectionID: RemoteConnectionID?) {
+    func openURL(for connectionID: OpenCodeRemoteConnectionID?) {
         guard let snapshot = snapshot(for: connectionID) else {
             return
         }
 
         NSWorkspace.shared.open(snapshot.descriptor.fixedURL)
-        lastMessage = "Opened \(snapshot.descriptor.id.displayName) endpoint."
+        lastMessage = "Opened \(snapshot.descriptor.displayName) endpoint."
         lastError = nil
         onChange?()
     }
 
-    func snapshot(for connectionID: RemoteConnectionID?) -> ConnectionSnapshot? {
+    func snapshot(for connectionID: OpenCodeRemoteConnectionID?) -> ConnectionSnapshot? {
         guard let connectionID else {
             return nil
         }
 
         return orderedSnapshots.first(where: { $0.descriptor.id == connectionID })
+    }
+
+    func displayName(for connectionID: OpenCodeRemoteConnectionID?) -> String? {
+        guard let connectionID else {
+            return nil
+        }
+
+        return orderedSnapshots.first(where: { $0.descriptor.id == connectionID })?.descriptor.displayName
     }
 
     func startBackgroundReconcileLoop() {

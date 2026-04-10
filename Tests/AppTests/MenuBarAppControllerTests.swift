@@ -21,19 +21,19 @@ struct MenuBarAppControllerTests {
         try await Task.sleep(nanoseconds: 30_000_000)
         controller.stopBackgroundReconcileLoop()
 
-        #expect(await gateway.reconcileCallCount >= 2)
+        #expect(gateway.reconcileCallCount >= 2)
         #expect(controller.orderedSnapshots.first?.tunnel == .healthy)
     }
 
     private func makeSnapshot(
-        id: RemoteConnectionID,
+        id: OpenCodeRemoteConnectionID,
         desiredState: DesiredConnectionState,
         tunnel: ConnectionHealthState
     ) -> ConnectionSnapshot {
         ConnectionSnapshot(
             descriptor: ConnectionDescriptor(
                 id: id,
-                fixedURL: OpenCodeRemoteDefaults.connection(for: id.coreID).localURL
+                fixedURL: OpenCodeRemoteDefaults.connection(for: id).localURL
             ),
             desiredState: desiredState,
             remote: .healthy,
@@ -64,7 +64,7 @@ private final class TestConnectionShellGateway: ConnectionShellGateway {
         return reconcileSnapshotsValue
     }
 
-    func send(_ command: ConnectionCommand, to connectionID: RemoteConnectionID) async throws -> ConnectionSnapshot {
+    func send(_ command: ConnectionCommand, to connectionID: OpenCodeRemoteConnectionID) async throws -> ConnectionSnapshot {
         reconcileSnapshotsValue[0]
     }
 
