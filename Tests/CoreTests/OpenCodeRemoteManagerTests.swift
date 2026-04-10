@@ -96,6 +96,27 @@ struct OpenCodeRemoteManagerTests {
         #expect(await tunnelController.operations == ["state:go", "start:go", "state:go"])
     }
 
+    @Test
+    func startThrowsUnknownConnectionForUnconfiguredID() async throws {
+        let manager = OpenCodeRemoteManager(
+            connections: [OpenCodeRemoteDefaults.connection(for: .go)],
+            desiredStateStore: InMemoryDesiredStateStore(),
+            remoteServiceController: MockRemoteServiceController(states: [.go: .running]),
+            tunnelController: MockTunnelController(states: [.go: .running]),
+            healthChecker: MockHealthChecker(results: [.go: .init(state: .healthy)]),
+            dateProvider: FixedDateProvider(now: .distantPast)
+        )
+
+        do {
+            _ = try await manager.start(OpenCodeRemoteConnectionID(rawValue: "missing"))
+            Issue.record("Expected unknown connection error for unconfigured ID")
+        } catch let error as OpenCodeRemoteManagerError {
+            #expect(error.errorDescription == "Unknown connection: missing")
+        } catch {
+            Issue.record("Unexpected error type: \(error.localizedDescription)")
+        }
+    }
+
     private func makeManager(
         remoteController: MockRemoteServiceController,
         tunnelController: MockTunnelController,

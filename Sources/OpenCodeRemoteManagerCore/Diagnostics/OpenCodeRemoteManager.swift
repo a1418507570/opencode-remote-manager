@@ -27,6 +27,7 @@ public actor InMemoryDesiredStateStore: DesiredStateStore {
 }
 
 public struct OpenCodeRemoteManager: Sendable {
+    private let configuredConnections: [OpenCodeRemoteConnection]
     private let desiredStateStore: DesiredStateStore
     private let remoteServiceController: RemoteServiceControlling
     private let tunnelController: TunnelControlling
@@ -34,12 +35,14 @@ public struct OpenCodeRemoteManager: Sendable {
     private let dateProvider: DateProviding
 
     public init(
+        connections: [OpenCodeRemoteConnection] = OpenCodeRemoteDefaults.connections,
         desiredStateStore: DesiredStateStore = InMemoryDesiredStateStore(),
         remoteServiceController: RemoteServiceControlling,
         tunnelController: TunnelControlling,
         healthChecker: HTTPHealthChecking,
         dateProvider: DateProviding = SystemDateProvider()
     ) {
+        self.configuredConnections = connections
         self.desiredStateStore = desiredStateStore
         self.remoteServiceController = remoteServiceController
         self.tunnelController = tunnelController
@@ -48,11 +51,11 @@ public struct OpenCodeRemoteManager: Sendable {
     }
 
     public func connections() -> [OpenCodeRemoteConnection] {
-        OpenCodeRemoteDefaults.connections
+        configuredConnections
     }
 
     public func snapshot(for connectionID: OpenCodeRemoteConnectionID) async throws -> OpenCodeRemoteSnapshot {
-        let connection = OpenCodeRemoteDefaults.connection(for: connectionID)
+        let connection = try connection(for: connectionID)
         let desiredState = await desiredStateStore.desiredState(for: connectionID)
         async let remoteState = safeRemoteServiceState(for: connection)
         async let tunnelState = safeTunnelState(for: connection)
@@ -71,7 +74,7 @@ public struct OpenCodeRemoteManager: Sendable {
     public func diagnose() async throws -> OpenCodeDiagnosticsReport {
         var reports: [ConnectionDiagnosticReport] = []
 
-        for connection in OpenCodeRemoteDefaults.connections {
+        for connection in configuredConnections {
             let snapshot = try await snapshot(for: connection.id)
             let checks = buildChecks(for: snapshot)
             let actions = buildRecommendedActions(from: snapshot.state)
@@ -82,7 +85,7 @@ public struct OpenCodeRemoteManager: Sendable {
     }
 
     public func start(_ connectionID: OpenCodeRemoteConnectionID) async throws -> OpenCodeRemoteSnapshot {
-        let connection = OpenCodeRemoteDefaults.connection(for: connectionID)
+        let connection = try connection(for: connectionID)
         await desiredStateStore.setDesiredState(.running, for: connectionID)
         try await remoteServiceController.start(connection)
         try await tunnelController.start(connection)
@@ -90,7 +93,7 @@ public struct OpenCodeRemoteManager: Sendable {
     }
 
     public func stop(_ connectionID: OpenCodeRemoteConnectionID) async throws -> OpenCodeRemoteSnapshot {
-        let connection = OpenCodeRemoteDefaults.connection(for: connectionID)
+        let connection = try connection(for: connectionID)
         await desiredStateStore.setDesiredState(.stopped, for: connectionID)
         try await tunnelController.stop(connection)
         try await remoteServiceController.stop(connection)
@@ -98,7 +101,7 @@ public struct OpenCodeRemoteManager: Sendable {
     }
 
     public func restart(_ connectionID: OpenCodeRemoteConnectionID) async throws -> OpenCodeRemoteSnapshot {
-        let connection = OpenCodeRemoteDefaults.connection(for: connectionID)
+        let connection = try connection(for: connectionID)
         await desiredStateStore.setDesiredState(.running, for: connectionID)
         try await remoteServiceController.restart(connection)
         try await tunnelController.restart(connection)
@@ -106,7 +109,7 @@ public struct OpenCodeRemoteManager: Sendable {
     }
 
     public func repair(_ connectionID: OpenCodeRemoteConnectionID) async throws -> OpenCodeRemoteSnapshot {
-        let connection = OpenCodeRemoteDefaults.connection(for: connectionID)
+        let connection = try connection(for: connectionID)
         await desiredStateStore.setDesiredState(.running, for: connectionID)
 
         if await safeRemoteServiceState(for: connection) != .running {
@@ -134,8 +137,15 @@ public struct OpenCodeRemoteManager: Sendable {
     }
 
     public func desiredConnectionIDs(requiring state: DesiredConnectionState = .running) async -> [OpenCodeRemoteConnectionID] {
-        let states = await desiredStateStore.allDesiredStates()
-        return OpenCodeRemoteConnectionID.allCases.filter { states[$0] == state }
+        var matchingIDs: [OpenCodeRemoteConnectionID] = []
+
+        for connection in configuredConnections {
+            if await desiredStateStore.desiredState(for: connection.id) == state {
+                matchingIDs.append(connection.id)
+            }
+        }
+
+        return matchingIDs
     }
 
     private func buildChecks(for snapshot: OpenCodeRemoteSnapshot) -> [DiagnosticCheck] {
@@ -189,6 +199,14 @@ public struct OpenCodeRemoteManager: Sendable {
         }
 
         return actions
+    }
+
+    private func connection(for id: OpenCodeRemoteConnectionID) throws -> OpenCodeRemoteConnection {
+        guard let connection = configuredConnections.first(where: { $0.id == id }) else {
+            throw OpenCodeRemoteManagerError.unknownConnection(id.rawValue)
+        }
+
+        return connection
     }
 
     private func safeRemoteServiceState(for connection: OpenCodeRemoteConnection) async -> RemoteServiceState {
