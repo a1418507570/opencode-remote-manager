@@ -35,7 +35,7 @@ public struct OpenCodeRemoteManager: Sendable {
     private let dateProvider: DateProviding
 
     public init(
-        connections: [OpenCodeRemoteConnection] = OpenCodeRemoteDefaults.connections,
+        connections: [OpenCodeRemoteConnection],
         desiredStateStore: DesiredStateStore = InMemoryDesiredStateStore(),
         remoteServiceController: RemoteServiceControlling,
         tunnelController: TunnelControlling,

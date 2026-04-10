@@ -3,7 +3,7 @@ import Foundation
 public extension OpenCodeRemoteManager {
     static func live(
         desiredStateStore: DesiredStateStore = PersistentDesiredStateStore(),
-        remoteConfigurationStore: RemoteConfigurationStore = PersistentRemoteConfigurationStore()
+        remoteConfigurationStore: RemoteConfigurationStore = PersistentRemoteConfigurationStore(seededConnections: OpenCodeRemoteDefaults.connections)
     ) -> OpenCodeRemoteManager {
         let connections = remoteConfigurationStore.loadConnections()
 

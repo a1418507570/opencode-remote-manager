@@ -14,7 +14,7 @@ struct OpenCodeRemoteManagerLiveTests {
 
         let manager = OpenCodeRemoteManager.live(
             desiredStateStore: PersistentDesiredStateStore(fileURL: desiredStateURL),
-            remoteConfigurationStore: PersistentRemoteConfigurationStore(fileURL: remoteConfigURL)
+            remoteConfigurationStore: PersistentRemoteConfigurationStore(fileURL: remoteConfigURL, seededConnections: OpenCodeRemoteDefaults.connections)
         )
 
         #expect(manager.connections() == OpenCodeRemoteDefaults.connections)
@@ -44,7 +44,7 @@ struct OpenCodeRemoteManagerLiveTests {
 
         let manager = OpenCodeRemoteManager.live(
             desiredStateStore: PersistentDesiredStateStore(fileURL: desiredStateURL),
-            remoteConfigurationStore: PersistentRemoteConfigurationStore(fileURL: remoteConfigURL)
+            remoteConfigurationStore: PersistentRemoteConfigurationStore(fileURL: remoteConfigURL, seededConnections: OpenCodeRemoteDefaults.connections)
         )
 
         #expect(manager.connections() == persistedConnections)
@@ -64,7 +64,7 @@ struct OpenCodeRemoteManagerLiveTests {
 
         let manager = OpenCodeRemoteManager.live(
             desiredStateStore: PersistentDesiredStateStore(fileURL: desiredStateURL),
-            remoteConfigurationStore: PersistentRemoteConfigurationStore(fileURL: remoteConfigURL)
+            remoteConfigurationStore: PersistentRemoteConfigurationStore(fileURL: remoteConfigURL, seededConnections: OpenCodeRemoteDefaults.connections)
         )
 
         let running = await manager.desiredConnectionIDs(requiring: .running)
@@ -72,5 +72,25 @@ struct OpenCodeRemoteManagerLiveTests {
 
         #expect(running == [.go])
         #expect(stopped == .stopped)
+    }
+
+    @Test
+    func liveManagerAcceptsExplicitlyEmptyPersistedConfiguration() async throws {
+        let directoryURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let remoteConfigURL = directoryURL.appendingPathComponent("connections.json")
+        let desiredStateURL = directoryURL.appendingPathComponent("desired-state.json")
+
+        try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directoryURL) }
+
+        let payload = PersistentRemoteConfigurationStore.Payload(connections: [])
+        try JSONEncoder().encode(payload).write(to: remoteConfigURL)
+
+        let manager = OpenCodeRemoteManager.live(
+            desiredStateStore: PersistentDesiredStateStore(fileURL: desiredStateURL),
+            remoteConfigurationStore: PersistentRemoteConfigurationStore(fileURL: remoteConfigURL, seededConnections: OpenCodeRemoteDefaults.connections)
+        )
+
+        #expect(manager.connections().isEmpty)
     }
 }
