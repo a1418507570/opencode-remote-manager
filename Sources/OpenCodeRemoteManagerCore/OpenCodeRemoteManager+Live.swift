@@ -1,8 +1,11 @@
 import Foundation
 
 public extension OpenCodeRemoteManager {
-    static func live(desiredStateStore: DesiredStateStore = PersistentDesiredStateStore()) -> OpenCodeRemoteManager {
-        let connections = OpenCodeRemoteDefaults.connections
+    static func live(
+        desiredStateStore: DesiredStateStore = PersistentDesiredStateStore(),
+        remoteConfigurationStore: RemoteConfigurationStore = PersistentRemoteConfigurationStore()
+    ) -> OpenCodeRemoteManager {
+        let connections = remoteConfigurationStore.loadConnections()
 
         return OpenCodeRemoteManager(
             connections: connections,
